@@ -14,7 +14,7 @@ The example here will run the tests and build an image. Future examples can buil
 
 ### kubeconfig env variable
 
-Need to add an env variable called KUBE_CONFIG that holds a base64 encoded string of the kubeconfig to use for connecting to the dev cluster that will process the supply chain.
+Need to add an env variable called KUBE_CONFIG that holds a base64 encoded string of the kubeconfig to connect to the dev cluster that will process the supply chain.
 
 ### workload template
 
@@ -40,8 +40,7 @@ env:
 
 For this example, we want a supply chain to test and build an image of our commit to verify correctness prior to allowing a merge.
 
-Located at [config/pull-request-supply-chain.yaml](config%2Fpull-request-supply-chain.yaml) is an example you can install (developed against on TAP 1.7) 
-
+Located at [config/pull-request-supply-chain.yaml](config%2Fpull-request-supply-chain.yaml) is an example you can install on your full, build, or iterate cluster (developed against on TAP 1.7) 
 
 # pull request in action
 
@@ -55,7 +54,7 @@ on:
 ```
 Open/ReOpen/Synchronize will submit a new workload using the commit that triggered the action.
 
-Closed will clean up all workloads created related to the pull request using the convention of `workloadname-pr-PR_NUMBER`
+Closed will clean up all workloads related to the pull request using the convention of `workloadname-pr-PR_NUMBER`
 
 # successful run
 
@@ -63,7 +62,7 @@ On a pull request open, the action will create and submit the workload. Here is 
 
 ![workload-template-create-submit.png](docs/workload-template-create-submit.png)
 
-Snipped from the cluster
+Snippet from the cluster
 ```shell
 (⎈|tap-full:demos)➜  tap-workload-pr-action git:(addPrWorkflow) ✗ k get workloads
 NAME                                  SOURCE                                              SUPPLYCHAIN    READY     REASON               AGE
@@ -165,3 +164,12 @@ tap-workload-pr-action-pr-1-991a3c4   https://github.com/rabeyta/tap-workload-pr
 
 On close of the pull request or merging, the action will delete all workloads related to the pull request.
 
+![cleanup-pr-workloads.png](docs/cleanup-pr-workloads.png)
+
+![tdp-no-workloads.png](docs/tdp-no-workloads.png)
+
+
+```shell
+(⎈|tap-full:demos)➜  tap-workload-pr-action git:(readmeUpdatesClosePr) ✗ k get workloads
+No resources found in demos namespace.
+```
