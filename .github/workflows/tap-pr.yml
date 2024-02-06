@@ -1,0 +1,98 @@
+name: TAP PR
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize, closed]
+env:
+  WORKLOAD_NAMESPACE: dev
+
+jobs:
+  build:
+    if: github.event.action == 'opened' || github.event.action == 'reopened' || github.event.action == 'synchronize'
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    - name: Get repository name
+      run: echo "REPO_NAME=$(echo $GITHUB_REPOSITORY | cut -d / -f 2)" >> $GITHUB_ENV
+    - name: install-kubectl
+      uses: tale/kubectl-action@v1
+      with:
+        base64-kube-config: ${{ secrets.KUBE_CONFIG }}
+    - name: Install ytt
+      uses: carvel-dev/setup-action@v2.0.0
+      with:
+        only: ytt
+        ytt: v0.47.0
+    - name: build and deploy workload template
+      run: |
+        workloadYaml=$(ytt -f $GITHUB_WORKSPACE/config/pr-workload-template.yaml \
+        --data-value-yaml name=${{ env.REPO_NAME}} \
+        --data-value-yaml namespace=${{ env.WORKLOAD_NAMESPACE }} \
+        --data-value-yaml pr=${{ github.event.pull_request.number }} \
+        --data-value-yaml shortSha=$(git rev-parse --short ${{ github.event.pull_request.head.sha }}) \
+        --data-value-yaml sha=${{ github.event.pull_request.head.sha }} \
+        --data-value-yaml branch=${{ github.head_ref }} \
+        --data-value-yaml repo=${{ github.repository }})
+        echo "$workloadYaml" 
+        echo "$workloadYaml" | kubectl apply -f-
+    - name: Get workload name
+      run: echo "FORMATTED_WORKLOAD_NAME=${{ env.REPO_NAME }}-pr-${{ github.event.pull_request.number }}-$(git rev-parse --short ${{ github.event.pull_request.head.sha }})" >> $GITHUB_ENV
+    - name: check test status
+      timeout-minutes: 10
+      run: |
+        while [[ true ]]; do
+          resources=$(kubectl -n ${{ env.WORKLOAD_NAMESPACE }} get workload ${{ env.FORMATTED_WORKLOAD_NAME }} -o jsonpath='{.status.resources}')
+          sourceTesterConditions=$(echo "$resources" | sed 's/$/\\n/' | tr -d '\n' | sed '$ s/\\n$//' | jq -c '.[] | select(.name == "source-tester") | .conditions')
+          while read -r condition; do
+            if [[ $(echo "$condition" | jq -r '.type') == "Healthy" ]]; then
+              stepStatus=$(echo "$condition" | jq -r '.status')
+              echo "$condition" | jq -r '.message'
+              if [[ $stepStatus == "False" ]]; then
+                exit 1
+              elif [[ $stepStatus == "True" ]]; then
+                echo "tests completed successfully"
+                exit 0
+              else
+                sleep 15
+              fi
+            fi
+          done < <(jq -c '. []' <<< "$sourceTesterConditions")
+        done
+    - name: check build status
+      timeout-minutes: 15
+      run: |
+        while true; do
+          resources=$(kubectl -n ${{ env.WORKLOAD_NAMESPACE }} get workload ${{ env.FORMATTED_WORKLOAD_NAME }} -o jsonpath='{.status.resources}')
+          imageProviderConditions=$(echo "$resources" | sed 's/$/\\n/' | tr -d '\n' | sed '$ s/\\n$//' | jq -c '.[] | select(.name == "image-provider") | .conditions')
+          while read -r condition; do
+            if [[ $(echo "$condition" | jq -r '.type') == "Healthy" ]]; then
+              stepStatus=$(echo "$condition" | jq -r '.status')
+              echo "$condition" | jq -r '.message'
+              if [[ $stepStatus == "False" ]]; then
+                exit 1
+              elif [[ $stepStatus == "True" ]]; then
+                echo "build completed successfully"
+                exit 0
+              else
+                sleep 15
+              fi
+            fi
+          done < <(jq -c '. []' <<< "$imageProviderConditions")
+        done
+  cleanup:
+    if: github.event.action == 'closed'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: install-kubectl
+        uses: tale/kubectl-action@v1
+        with:
+          base64-kube-config: ${{ secrets.KUBE_CONFIG }}
+      - name: Get repository name
+        run: echo "REPO_NAME=$(echo $GITHUB_REPOSITORY | cut -d / -f 2)" >> $GITHUB_ENV
+      - name: cleanup workload
+        run: |
+          dws(){
+              for workload in $(kubectl -n ${{ env.WORKLOAD_NAMESPACE }} get workloads | grep -v NAME | cut -f1 -d ' ' | grep $1); do kubectl -n ${{ env.WORKLOAD_NAMESPACE }} delete workload/$workload --force; done
+          }
+          dws "${{ env.REPO_NAME }}-pr-${{ github.event.pull_request.number }}"
