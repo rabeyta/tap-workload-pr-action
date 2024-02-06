@@ -1,0 +1,68 @@
+#@ load("@ytt:data", "data")
+#@ load("@ytt:assert", "assert")
+
+#@ data.values.registry.server or assert.fail("missing registry.server")
+#@ data.values.registry.repository or assert.fail("missing registry.repository")
+---
+apiVersion: carto.run/v1alpha1
+kind: ClusterSupplyChain
+metadata:
+  name: pull-request
+spec:
+  selectorMatchExpressions:
+    - key: 'apps.tanzu.vmware.com/workload-type'
+      operator: In
+      values:
+        - web
+  selector:
+    apps.tanzu.vmware.com/pull-request: "true"
+
+  resources:
+    - name: source-provider
+      templateRef:
+        kind: ClusterSourceTemplate
+        name: source-template
+      params:
+        - name: serviceAccount
+          default: #@ data.values.service_account
+        - name: gitImplementation
+          default: #@ data.values.git_implementation
+
+    - name: source-tester
+      templateRef:
+        kind: ClusterSourceTemplate
+        name: testing-pipeline
+      sources:
+        - resource: source-provider
+          name: source
+
+    - name: image-provider
+      templateRef:
+        kind: ClusterImageTemplate
+        options:
+          - name: kpack-template
+            selector:
+              matchFields:
+                - key: spec.params[?(@.name=="dockerfile")]
+                  operator: DoesNotExist
+          - name: kaniko-template
+            selector:
+              matchFields:
+                - key: spec.params[?(@.name=="dockerfile")]
+                  operator: Exists
+      params:
+        - name: serviceAccount
+          default: #@ data.values.service_account
+        - name: registry
+          value: #@ data.values.registry
+        - name: clusterBuilder
+          default: #@ data.values.cluster_builder
+        - name: dockerfile
+          default: ./Dockerfile
+        - name: docker_build_context
+          default: ./
+        - name: docker_build_extra_args
+          default: []
+      sources:
+        - resource: source-provider
+          name: source

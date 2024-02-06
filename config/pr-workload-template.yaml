@@ -1,0 +1,21 @@
+#@ load("@ytt:data", "data")
+---
+apiVersion: carto.run/v1alpha1
+kind: Workload
+metadata:
+  name: #@ data.values.name + "-pr-" + str(data.values.pr) + "-" + str(data.values.shortSha)
+  namespace: #@ data.values.namespace
+  labels:
+    apps.tanzu.vmware.com/workload-type: web
+    apps.tanzu.vmware.com/pull-request: "true"
+    app.kubernetes.io/part-of: #@ data.values.name + "-pr-" + str(data.values.pr) + "-" + str(data.values.shortSha)
+spec:
+  build:
+    env:
+      - name: BP_JVM_VERSION
+        value: "17"
+  source:
+    git:
+      url: #@ "https://github.com/" + data.values.repo
+      ref:
+        commit: #@ str(data.values.sha)
