@@ -4,7 +4,7 @@ on:
   pull_request:
     types: [opened, reopened, synchronize, closed]
 env:
-  WORKLOAD_NAMESPACE: dev
+  WORKLOAD_NAMESPACE: demos
 
 jobs:
   build:
