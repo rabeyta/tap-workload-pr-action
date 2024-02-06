@@ -1,17 +1,24 @@
-HELP.md
+### Git ###
+.git/
+.github/
+.gitmodules
+**/.gitattributes
+**/.gitignore
+
+### Maven ###
 target/
+!.mvn/wrapper/maven-wrapper.jar
 !**/src/main/**/target/
 !**/src/test/**/target/
 
-# gradle
-.gradle/
+### Gradle ###
+.gradle
+build/
 !gradle/wrapper/gradle-wrapper.jar
-bin/
+!**/src/main/**/build/
+!**/src/test/**/build/
 
-# maven-wrapper.jar
-**/maven-wrapper.jar
-
-### STS ###
+### STS/Eclipse ###
 .apt_generated
 .classpath
 .factorypath
@@ -20,8 +27,13 @@ bin/
 .springBeans
 .sts4-cache
 
+### VS Code ###
+.vscode/
+*.code-workspace
+
 ### IntelliJ IDEA ###
-.idea
+.idea/
+out/
 *.iws
 *.iml
 *.ipr
@@ -36,5 +48,8 @@ build/
 !**/src/main/**/build/
 !**/src/test/**/build/
 
-### VS Code ###
-.vscode/
+### Tilt ###
+Tiltfile
+
+### Accelerator ###
+accelerator-log.md

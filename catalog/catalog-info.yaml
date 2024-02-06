@@ -1,0 +1,17 @@
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: tap-workload-pr-action
+  description: Tanzu Java Web App
+  tags:
+    - app-accelerator
+    - java
+    - spring
+    - web
+    - tanzu
+  annotations:
+    'backstage.io/kubernetes-label-selector': 'app.kubernetes.io/part-of=tap-workload-pr-action'
+spec:
+  type: service
+  lifecycle: experimental
+  owner: default-team
