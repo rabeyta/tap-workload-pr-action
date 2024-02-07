@@ -48,7 +48,7 @@ jobs:
             continue
           fi
 
-          sourceTesterConditions=$(echo "$resources" | jq -c '[.[] | select(.name == "source-tester").conditions[] | select(.type == "Healthy")]')
+          sourceTesterConditions=$(echo "$resources" | sed 's/$/\\n/' | tr -d '\n' | sed '$ s/\\n$//' | jq -c '[.[] | select(.name == "source-tester").conditions[] | select(.type == "Healthy")]')
 
           for condition in $(echo "${sourceTesterConditions}" | jq -c '.[]'); do
             status=$(echo "$condition" | jq -r '.status')
@@ -77,7 +77,7 @@ jobs:
             continue
           fi
 
-          imageProviderConditions=$(echo "$resources" | jq -c '[.[] | select(.name == "image-provider").conditions[] | select(.type == "Healthy")]')
+          imageProviderConditions=$(echo "$resources" | sed 's/$/\\n/' | tr -d '\n' | sed '$ s/\\n$//' | jq -c '[.[] | select(.name == "image-provider").conditions[] | select(.type == "Healthy")]')
 
           for condition in $(echo "${imageProviderConditions}" | jq -c '.[]'); do
             status=$(echo "$condition" | jq -r '.status')
