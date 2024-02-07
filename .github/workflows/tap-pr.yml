@@ -41,31 +41,30 @@ jobs:
       timeout-minutes: 10
       run: |
         while true; do
-          resources=$(kubectl -n ${{ env.WORKLOAD_NAMESPACE }} get workload ${{ env.FORMATTED_WORKLOAD_NAME }} -o jsonpath='{.status.resources}' | sed 's/$/\\n/' | tr -d '\n' | sed '$ s/\\n$//')
-          if [ $? -ne 0 ] || [ -z "$resources" ]; then
-            echo "::error::Failed to get resources or resources are empty, retrying in 15s..."
-            sleep 15
-            continue
-          fi
+            resources=$(kubectl -n demos get workload tap-workload-pr-action-pr-4-b7a2fd0 -o jsonpath='{.status.resources}' | sed 's/$/\\n/' | tr -d '\n' | sed '$ s/\\n$//')
+            if [ $? -ne 0 ] || [ -z "$resources" ]; then
+              echo "::error::Failed to get resources or resources are empty, retrying in 15s..."
+              sleep 15
+              continue
+            fi
 
-          sourceTesterConditions=$(echo "$resources" | jq -c '[.[] | select(.name == "source-tester").conditions[] | select(.type == "Healthy")]')
-
-          for condition in $(echo "${sourceTesterConditions}" | jq -c '.[]'); do
-            mystatus=$(echo "$condition" | jq -r '.status')
-            message=$(echo "$condition" | jq -r '.message')
-            echo "::debug::$message"
+            sourceTesterConditions=$(echo "$resources" | jq -c '.[] | select(.name == "source-tester").conditions[] | select(.type == "Healthy")')
+            mystatus=$(echo "$sourceTesterConditions" | jq -r '.status')
+            message=$(echo "$sourceTesterConditions" | jq -r '.message')
 
             if [[ $mystatus == "True" ]]; then
               echo "::notice::Tests completed successfully."
               exit 0
             elif [[ $mystatus == "False" ]]; then
               echo "::error::Tests failed."
+              echo "::error::$message"
               exit 1
+            else
+              echo "::notice::$message"
             fi
-          done
 
-          sleep 15
-        done
+            sleep 15
+          done
     - name: check build status
       timeout-minutes: 15
       run: |
