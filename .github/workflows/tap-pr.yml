@@ -40,45 +40,59 @@ jobs:
     - name: check test status
       timeout-minutes: 10
       run: |
-        while [[ true ]]; do
-          resources=$(kubectl -n ${{ env.WORKLOAD_NAMESPACE }} get workload ${{ env.FORMATTED_WORKLOAD_NAME }} -o jsonpath='{.status.resources}')
-          sourceTesterConditions=$(echo "$resources" | sed 's/$/\\n/' | tr -d '\n' | sed '$ s/\\n$//' | jq -c '.[] | select(.name == "source-tester") | .conditions')
-          while read -r condition; do
-            if [[ $(echo "$condition" | jq -r '.type') == "Healthy" ]]; then
-              stepStatus=$(echo "$condition" | jq -r '.status')
-              echo "$condition" | jq -r '.message'
-              if [[ $stepStatus == "False" ]]; then
-                exit 1
-              elif [[ $stepStatus == "True" ]]; then
-                echo "tests completed successfully"
-                exit 0
-              else
-                sleep 15
-              fi
+        while true; do
+            resources=$(kubectl -n ${{ env.WORKLOAD_NAMESPACE }} get workload ${{ env.FORMATTED_WORKLOAD_NAME }} -o jsonpath='{.status.resources}' | sed 's/$/\\n/' | tr -d '\n' | sed '$ s/\\n$//' )
+            if [ $? -ne 0 ] || [ -z "$resources" ]; then
+              echo "::warning::Failed to get resources or resources are empty, retrying in 5s..."
+              sleep 5
+              continue
             fi
-          done < <(jq -c '. []' <<< "$sourceTesterConditions")
-        done
+
+            sourceTesterConditions=$(echo "$resources" | jq -c '.[] | select(.name == "source-tester").conditions[] | select(.type == "Healthy")')
+            mystatus=$(echo "$sourceTesterConditions" | jq -r '.status')
+            message=$(echo "$sourceTesterConditions" | jq -r '.message')
+
+            if [[ $mystatus == "True" ]]; then
+              echo "::notice::Tests completed successfully."
+              exit 0
+            elif [[ $mystatus == "False" ]]; then
+              echo "::error::Tests failed."
+              echo "::error::$message"
+              exit 1
+            else
+              echo "::notice::$message"
+            fi
+
+            sleep 15
+          done
     - name: check build status
       timeout-minutes: 15
       run: |
         while true; do
-          resources=$(kubectl -n ${{ env.WORKLOAD_NAMESPACE }} get workload ${{ env.FORMATTED_WORKLOAD_NAME }} -o jsonpath='{.status.resources}')
-          imageProviderConditions=$(echo "$resources" | sed 's/$/\\n/' | tr -d '\n' | sed '$ s/\\n$//' | jq -c '.[] | select(.name == "image-provider") | .conditions')
-          while read -r condition; do
-            if [[ $(echo "$condition" | jq -r '.type') == "Healthy" ]]; then
-              stepStatus=$(echo "$condition" | jq -r '.status')
-              echo "$condition" | jq -r '.message'
-              if [[ $stepStatus == "False" ]]; then
-                exit 1
-              elif [[ $stepStatus == "True" ]]; then
-                echo "build completed successfully"
-                exit 0
-              else
-                sleep 15
-              fi
+            resources=$(kubectl -n ${{ env.WORKLOAD_NAMESPACE }} get workload ${{ env.FORMATTED_WORKLOAD_NAME }} -o jsonpath='{.status.resources}' | sed 's/$/\\n/' | tr -d '\n' | sed '$ s/\\n$//' )
+            if [ $? -ne 0 ]; then
+              echo "::warning::Failed to get resources, retrying in 5s..."
+              sleep 5
+              continue
             fi
-          done < <(jq -c '. []' <<< "$imageProviderConditions")
-        done
+
+            imageProviderConditions=$(echo "$resources" | jq -c '.[] | select(.name == "image-provider").conditions[] | select(.type == "Healthy")')
+            mystatus=$(echo "$imageProviderConditions" | jq -r '.status')
+            message=$(echo "$imageProviderConditions" | jq -r '.message')
+
+            if [[ $mystatus == "True" ]]; then
+              echo "::notice::Build completed successfully."
+              exit 0
+            elif [[ $mystatus == "False" ]]; then
+              echo "::error::Build failed."
+              echo "::error::$message"
+              exit 1
+            else
+              echo "::notice::$message"
+            fi
+
+            sleep 15
+          done
   cleanup:
     if: github.event.action == 'closed'
     runs-on: ubuntu-latest
