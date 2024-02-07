@@ -40,44 +40,60 @@ jobs:
     - name: check test status
       timeout-minutes: 10
       run: |
-        while [[ true ]]; do
+        while true; do
           resources=$(kubectl -n ${{ env.WORKLOAD_NAMESPACE }} get workload ${{ env.FORMATTED_WORKLOAD_NAME }} -o jsonpath='{.status.resources}')
-          sourceTesterConditions=$(echo "$resources" | sed 's/$/\\n/' | tr -d '\n' | sed '$ s/\\n$//' | jq -c '.[] | select(.name == "source-tester") | .conditions')
-          while read -r condition; do
-            if [[ $(echo "$condition" | jq -r '.type') == "Healthy" ]]; then
-              stepStatus=$(echo "$condition" | jq -r '.status')
-              echo "$condition" | jq -r '.message'
-              if [[ $stepStatus == "False" ]]; then
-                exit 1
-              elif [[ $stepStatus == "True" ]]; then
-                echo "tests completed successfully"
-                exit 0
-              else
-                sleep 15
-              fi
+          if [ $? -ne 0 ]; then
+            echo "::error::Failed to get resources, retrying in 15s..."
+            sleep 15
+            continue
+          fi
+
+          sourceTesterConditions=$(echo "$resources" | jq -c '[.[] | select(.name == "source-tester").conditions[] | select(.type == "Healthy")]')
+
+          for condition in $(echo "${sourceTesterConditions}" | jq -c '.[]'); do
+            status=$(echo "$condition" | jq -r '.status')
+            message=$(echo "$condition" | jq -r '.message')
+            echo "::debug::$message"
+
+            if [[ $status == "True" ]]; then
+              echo "::notice::Tests completed successfully."
+              exit 0
+            elif [[ $status == "False" ]]; then
+              echo "::error::Tests failed."
+              exit 1
             fi
-          done < <(jq -c '. []' <<< "$sourceTesterConditions")
+          done
+
+          sleep 15
         done
     - name: check build status
       timeout-minutes: 15
       run: |
         while true; do
           resources=$(kubectl -n ${{ env.WORKLOAD_NAMESPACE }} get workload ${{ env.FORMATTED_WORKLOAD_NAME }} -o jsonpath='{.status.resources}')
-          imageProviderConditions=$(echo "$resources" | sed 's/$/\\n/' | tr -d '\n' | sed '$ s/\\n$//' | jq -c '.[] | select(.name == "image-provider") | .conditions')
-          while read -r condition; do
-            if [[ $(echo "$condition" | jq -r '.type') == "Healthy" ]]; then
-              stepStatus=$(echo "$condition" | jq -r '.status')
-              echo "$condition" | jq -r '.message'
-              if [[ $stepStatus == "False" ]]; then
-                exit 1
-              elif [[ $stepStatus == "True" ]]; then
-                echo "build completed successfully"
-                exit 0
-              else
-                sleep 15
-              fi
+          if [ $? -ne 0 ]; then
+            echo "::error::Failed to get resources, retrying in 15s..."
+            sleep 15
+            continue
+          fi
+
+          imageProviderConditions=$(echo "$resources" | jq -c '[.[] | select(.name == "image-provider").conditions[] | select(.type == "Healthy")]')
+
+          for condition in $(echo "${imageProviderConditions}" | jq -c '.[]'); do
+            status=$(echo "$condition" | jq -r '.status')
+            message=$(echo "$condition" | jq -r '.message')
+            echo "::debug::$message"
+
+            if [[ $status == "True" ]]; then
+              echo "::notice::Build completed successfully."
+              exit 0
+            elif [[ $status == "False" ]]; then
+              echo "::error::Build failed."
+              exit 1
             fi
-          done < <(jq -c '. []' <<< "$imageProviderConditions")
+          done
+
+          sleep 15
         done
   cleanup:
     if: github.event.action == 'closed'
