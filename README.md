@@ -64,7 +64,9 @@ On a pull request open, the action will create and submit the workload. Here is 
 
 Snippet from the cluster
 ```shell
-(⎈|tap-full:demos)➜  tap-workload-pr-action git:(addPrWorkflow) ✗ k get workloads
+k get workloads
+```
+```text
 NAME                                  SOURCE                                              SUPPLYCHAIN    READY     REASON               AGE
 tap-workload-pr-action-pr-1-608386e   https://github.com/rabeyta/tap-workload-pr-action   pull-request   Unknown   MissingValueAtPath   53s
 ```
@@ -82,13 +84,17 @@ Once all are completed, the action shows green and your pull-request could be me
 
 from the cluster
 ```shell
-(⎈|tap-full:demos)➜  tap-workload-pr-action git:(addPrWorkflow) ✗ k get workloads
+k get workloads
+```
+```text
 NAME                                  SOURCE                                              SUPPLYCHAIN    READY   REASON   AGE
 tap-workload-pr-action-pr-1-608386e   https://github.com/rabeyta/tap-workload-pr-action   pull-request   True    Ready    7m4s
 ```
 
 ```shell
-(⎈|tap-full:demos)➜  tap-workload-pr-action git:(addPrWorkflow) ✗ k get po
+k get po
+```
+```text
 NAME                                                    READY   STATUS      RESTARTS   AGE
 tap-workload-pr-action-pr-1-608386e-build-1-build-pod   0/1     Completed   0          7m30s
 tap-workload-pr-action-pr-1-608386e-jps76-test-pod      0/1     Completed   0          7m23s
@@ -107,7 +113,9 @@ Developer Portal
 
 On the cluster through the Tanzu CLI
 ```shell
-(⎈|arobert-full:demos)➜  tap-workload-pr-action git:(addPrWorkflow) ✗ tanzu apps workload get tap-workload-pr-action-pr-1-991a3c4
+tanzu apps workload get tap-workload-pr-action-pr-1-991a3c4
+```
+```text
 📡 Overview
    name:        tap-workload-pr-action-pr-1-991a3c4
    type:        web
@@ -154,7 +162,9 @@ Each commit will submit a new workload, as can be seen here on the developer por
 
 Cluster
 ```shell
-(⎈|tap-full:demos)➜  tap-workload-pr-action git:(addPrWorkflow) ✗ k get workloads
+k get workloads
+```
+```text
 NAME                                  SOURCE                                              SUPPLYCHAIN    READY   REASON                 AGE
 tap-workload-pr-action-pr-1-608386e   https://github.com/rabeyta/tap-workload-pr-action   pull-request   True    Ready                  23m
 tap-workload-pr-action-pr-1-991a3c4   https://github.com/rabeyta/tap-workload-pr-action   pull-request   False   HealthyConditionRule   14m
@@ -170,6 +180,8 @@ On close of the pull request or merging, the action will delete all workloads re
 
 
 ```shell
-(⎈|tap-full:demos)➜  tap-workload-pr-action git:(readmeUpdatesClosePr) ✗ k get workloads
+k get workloads
+```
+```text
 No resources found in demos namespace.
 ```
