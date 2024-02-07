@@ -41,24 +41,24 @@ jobs:
       timeout-minutes: 10
       run: |
         while true; do
-          resources=$(kubectl -n ${{ env.WORKLOAD_NAMESPACE }} get workload ${{ env.FORMATTED_WORKLOAD_NAME }} -o jsonpath='{.status.resources}')
+          resources=$(kubectl -n ${{ env.WORKLOAD_NAMESPACE }} get workload ${{ env.FORMATTED_WORKLOAD_NAME }} -o jsonpath='{.status.resources}' | sed 's/$/\\n/' | tr -d '\n' | sed '$ s/\\n$//')
           if [ $? -ne 0 ] || [ -z "$resources" ]; then
             echo "::error::Failed to get resources or resources are empty, retrying in 15s..."
             sleep 15
             continue
           fi
 
-          sourceTesterConditions=$(echo "$resources" | sed 's/$/\\n/' | tr -d '\n' | sed '$ s/\\n$//' | jq -c '[.[] | select(.name == "source-tester").conditions[] | select(.type == "Healthy")]')
+          sourceTesterConditions=$(echo "$resources" | jq -c '[.[] | select(.name == "source-tester").conditions[] | select(.type == "Healthy")]')
 
           for condition in $(echo "${sourceTesterConditions}" | jq -c '.[]'); do
-            status=$(echo "$condition" | jq -r '.status')
+            mystatus=$(echo "$condition" | jq -r '.status')
             message=$(echo "$condition" | jq -r '.message')
             echo "::debug::$message"
 
-            if [[ $status == "True" ]]; then
+            if [[ $mystatus == "True" ]]; then
               echo "::notice::Tests completed successfully."
               exit 0
-            elif [[ $status == "False" ]]; then
+            elif [[ $mystatus == "False" ]]; then
               echo "::error::Tests failed."
               exit 1
             fi
@@ -70,31 +70,28 @@ jobs:
       timeout-minutes: 15
       run: |
         while true; do
-          resources=$(kubectl -n ${{ env.WORKLOAD_NAMESPACE }} get workload ${{ env.FORMATTED_WORKLOAD_NAME }} -o jsonpath='{.status.resources}')
-          if [ $? -ne 0 ] || [ -z "$resources" ]; then
-            echo "::error::Failed to get resources or resources are empty, retrying in 15s..."
-            sleep 15
-            continue
-          fi
+            resources=$(kubectl -n ${{ env.WORKLOAD_NAMESPACE }} get workload ${{ env.FORMATTED_WORKLOAD_NAME }} -o jsonpath='{.status.resources}' | sed 's/$/\\n/' | tr -d '\n' | sed '$ s/\\n$//' )
+            if [ $? -ne 0 ]; then
+              echo "::error::Failed to get resources, retrying in 15s..."
+              sleep 15
+              continue
+            fi
 
-          imageProviderConditions=$(echo "$resources" | sed 's/$/\\n/' | tr -d '\n' | sed '$ s/\\n$//' | jq -c '[.[] | select(.name == "image-provider").conditions[] | select(.type == "Healthy")]')
-
-          for condition in $(echo "${imageProviderConditions}" | jq -c '.[]'); do
-            status=$(echo "$condition" | jq -r '.status')
-            message=$(echo "$condition" | jq -r '.message')
+            imageProviderConditions=$(echo "$resources" | jq -c '.[] | select(.name == "image-provider").conditions[] | select(.type == "Healthy")')
+            mystatus=$(echo "$imageProviderConditions" | jq -r '.status')
+            message=$(echo "$imageProviderConditions" | jq -r '.message')
             echo "::debug::$message"
 
-            if [[ $status == "True" ]]; then
+            if [[ $mystatus == "True" ]]; then
               echo "::notice::Build completed successfully."
               exit 0
-            elif [[ $status == "False" ]]; then
+            elif [[ $mystatus == "False" ]]; then
               echo "::error::Build failed."
               exit 1
             fi
-          done
 
-          sleep 15
-        done
+            sleep 15
+          done
   cleanup:
     if: github.event.action == 'closed'
     runs-on: ubuntu-latest
